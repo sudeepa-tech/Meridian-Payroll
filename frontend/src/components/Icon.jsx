@@ -1,0 +1,21 @@
+const p = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' };
+export const Icon = {
+  Grid: (props) => <svg viewBox="0 0 24 24" {...p} {...props}><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>,
+  Users: (props) => <svg viewBox="0 0 24 24" {...p} {...props}><circle cx="9" cy="8" r="3.2" /><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" /><circle cx="17.5" cy="9" r="2.5" /><path d="M14.5 20c.4-2.7 2.1-4.6 3.5-4.9" /></svg>,
+  Play: (props) => <svg viewBox="0 0 24 24" {...p} {...props}><circle cx="12" cy="12" r="9" /><path d="M10 8.5l6 3.5-6 3.5v-7z" fill="currentColor" stroke="none" /></svg>,
+  Shield: (props) => <svg viewBox="0 0 24 24" {...p} {...props}><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z" /><path d="M9 12l2 2 4-4" /></svg>,
+  Spark: (props) => <svg viewBox="0 0 24 24" {...p} {...props}><path d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6L12 3z" /><path d="M19 15l.7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7L19 15z" /></svg>,
+  Sliders: (props) => <svg viewBox="0 0 24 24" {...p} {...props}><path d="M4 6h10M17 6h3M4 12h3M9 12h11M4 18h13M20 18h.01" /><circle cx="16" cy="6" r="2" /><circle cx="6" cy="12" r="2" /><circle cx="16.5" cy="18" r="2" /></svg>,
+  Chat: (props) => <svg viewBox="0 0 24 24" {...p} {...props}><path d="M4 5h16v11H8l-4 4V5z" /></svg>,
+  Gear: (props) => <svg viewBox="0 0 24 24" {...p} {...props}><circle cx="12" cy="12" r="3" /><path d="M19.4 13a7.5 7.5 0 000-2l2-1.5-2-3.4-2.3.8a7.5 7.5 0 00-1.7-1L15 3h-4l-.4 2.4a7.5 7.5 0 00-1.7 1l-2.3-.8-2 3.4L6.6 11a7.5 7.5 0 000 2l-2 1.5 2 3.4 2.3-.8a7.5 7.5 0 001.7 1L11 21h4l.4-2.4a7.5 7.5 0 001.7-1l2.3.8 2-3.4-2-1.5z" /></svg>,
+  ArrowUp: (props) => <svg viewBox="0 0 24 24" {...p} {...props}><path d="M12 19V5M6 11l6-6 6 6" /></svg>,
+  ArrowDown: (props) => <svg viewBox="0 0 24 24" {...p} {...props}><path d="M12 5v14M6 13l6 6 6-6" /></svg>,
+  Close: (props) => <svg viewBox="0 0 24 24" {...p} {...props}><path d="M6 6l12 12M18 6L6 18" /></svg>,
+  Search: (props) => <svg viewBox="0 0 24 24" {...p} {...props}><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>,
+  Download: (props) => <svg viewBox="0 0 24 24" {...p} {...props}><path d="M12 3v13m0 0l-4-4m4 4l4-4M4 20h16" /></svg>,
+  Check: (props) => <svg viewBox="0 0 24 24" {...p} {...props}><path d="M4 12l5 5L20 6" /></svg>,
+  Alert: (props) => <svg viewBox="0 0 24 24" {...p} {...props}><path d="M12 3l10 18H2L12 3z" /><path d="M12 10v4M12 17h.01" /></svg>,
+  Send: (props) => <svg viewBox="0 0 24 24" {...p} {...props}><path d="M4 12l16-8-6 16-3-6-7-2z" /></svg>,
+  Clock: (props) => <svg viewBox="0 0 24 24" {...p} {...props}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></svg>,
+  BarChart: (props) => <svg viewBox="0 0 24 24" {...p} {...props}><path d="M4 20V10M11 20V4M18 20v-7" /><path d="M2 20h20" /></svg>,
+};
