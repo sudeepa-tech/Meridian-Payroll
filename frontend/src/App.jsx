@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import Employees from './pages/Employees.jsx';
 import Payroll from './pages/Payroll.jsx';
 import Compliance from './pages/Compliance.jsx';
+import Policies from './pages/Policies.jsx';
 import Assistant from './pages/Assistant.jsx';
 import Settings from './pages/Settings.jsx';
 import AttendanceLeave from './pages/AttendanceLeave.jsx';
@@ -19,7 +20,7 @@ function Shell() {
   if (!authChecked || (user && loading)) return <div style={{ padding: 40 }}>Loading Meridian Payroll…</div>;
   if (!user) return <Login />;
 
-  const Page = { dashboard: Dashboard, employees: Employees, attendance: AttendanceLeave, payroll: Payroll, compliance: Compliance, reports: Reports, assistant: Assistant, settings: Settings }[page];
+  const Page = { dashboard: Dashboard, employees: Employees, attendance: AttendanceLeave, payroll: Payroll, compliance: Compliance, policies: Policies, reports: Reports, assistant: Assistant, settings: Settings }[page];
 
   return (
     <div className="shell">

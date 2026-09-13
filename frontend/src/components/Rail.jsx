@@ -8,6 +8,11 @@ const NAV = [
   { id: 'attendance', label: 'Attendance & leave', icon: Icon.Clock },
   { id: 'payroll', label: 'Run payroll', icon: Icon.Play },
   { id: 'compliance', label: 'Rules & compliance', icon: Icon.Shield },
+  {
+  id: 'policies',
+  label: 'Policy builder',
+  icon: Icon.Sliders
+},
   { id: 'reports', label: 'Reports', icon: Icon.BarChart },
   { id: 'assistant', label: 'AI assistant', icon: Icon.Chat },
   { id: 'settings', label: 'Settings', icon: Icon.Gear },

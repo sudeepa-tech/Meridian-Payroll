@@ -4,7 +4,8 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { seedIfEmpty } from './data/seed.js';
 import { seedAttendanceIfEmpty } from './data/seedAttendance.js';
-import { settings, compliance, employees, payroll, aiRouter, attendanceRouter, leaveRouter, reportsRouter, authRouter } from './routes.js';
+// import { settings, compliance, employees, payroll, aiRouter, attendanceRouter, leaveRouter, reportsRouter, authRouter } from './routes.js';
+import { settings, compliance, employees, payroll, aiRouter, attendanceRouter, leaveRouter, reportsRouter, authRouter, policyRouter } from './routes.js';
 import { seedUsersIfEmpty, requireAuth } from './core/auth.js';
 
 const app = express();
@@ -33,7 +34,7 @@ app.use('/api/ai', aiRouter);
 app.use('/api/attendance', attendanceRouter);
 app.use('/api/leave', leaveRouter);
 app.use('/api/reports', reportsRouter);
-
+app.use('/api/policies', policyRouter);
 app.use((req, res) => res.status(404).json({ error: { code: 'NOT_FOUND', message: `No route ${req.method} ${req.path}` } }));
 app.use((err, req, res, next) => {
   const status = err.status ?? 500;

@@ -46,6 +46,21 @@ export const api = {
     reset: (code) => req(`/compliance/${code}`, { method: 'DELETE' }),
     checklist: (code) => req(`/compliance/${code}/checklist`),
   },
+  policies: {
+  fields: () => req('/policies/fields'),
+  list: () => req('/policies'),
+  get: (id) => req(`/policies/${id}`),
+  create: (body) => req('/policies', {
+    method: 'POST',
+    body: JSON.stringify(body)
+  }),
+  apply: (id) => req(`/policies/${id}/apply`, {
+    method: 'POST'
+  }),
+  remove: (id) => req(`/policies/${id}`, {
+    method: 'DELETE'
+  }),
+},
   attendance: {
     list: (params = {}) => req(`/attendance?${new URLSearchParams(params)}`),
     get: (employeeId, period = '2026-09') => req(`/attendance/${employeeId}?period=${period}`),

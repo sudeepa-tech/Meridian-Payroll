@@ -115,6 +115,17 @@ CREATE TABLE IF NOT EXISTS users (
   employee_id TEXT REFERENCES employees(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS policies (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  scope_json TEXT NOT NULL,
+  rules_json TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'applied')),
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  applied_at TEXT
+);
 `);
 
 /* ---------- Bulk load / save helpers ----------
@@ -136,7 +147,30 @@ export function loadAll() {
   const settingsRow = db.prepare('SELECT * FROM settings WHERE id = 1').get();
   const settings = settingsRow ? { companyName: settingsRow.company_name, defaultCountry: settingsRow.default_country, reportingCurrency: settingsRow.reporting_currency, fxRates: settingsRow.fx_rates_json ? JSON.parse(settingsRow.fx_rates_json) : null, fiscalYearStart: settingsRow.fiscal_year_start, aiProvider: settingsRow.ai_provider } : null;
   const audit = db.prepare('SELECT * FROM audit_log ORDER BY at DESC LIMIT 500').all().map((r) => ({ id: r.id, at: r.at, actor: r.actor, action: r.action, ...(r.meta_json ? JSON.parse(r.meta_json) : {}) }));
-  return { employees, attendance, leaveRequests, payRuns, history, overrides, settings, audit };
+  const policies = db.prepare('SELECT * FROM policies ORDER BY created_at DESC').all().map((r) => ({
+  id: r.id,
+  name: r.name,
+  description: r.description,
+  scope: JSON.parse(r.scope_json),
+  rules: JSON.parse(r.rules_json),
+  status: r.status,
+  createdBy: r.created_by,
+  createdAt: r.created_at,
+  appliedAt: r.applied_at
+}));
+  // return { employees, attendance, leaveRequests, payRuns, history, overrides, settings, audit };
+  return {
+  employees,
+  attendance,
+  leaveRequests,
+  payRuns,
+  history,
+  overrides,
+  settings,
+  audit,
+  policies
+};
+
 }
 
 function rowToEmployee(r) {
@@ -193,6 +227,27 @@ export const persist = {
     db.prepare('DELETE FROM audit_log').run();
     const stmt = db.prepare('INSERT INTO audit_log (id, at, actor, action, meta_json) VALUES (?,?,?,?,?)');
     for (const a of list.slice(0, 500)) { const { id, at, actor, action, ...meta } = a; stmt.run(id, at, actor, action, JSON.stringify(meta)); }
+  }),
+    policies: db.transaction((list) => {
+    db.prepare('DELETE FROM policies').run();
+
+    const stmt = db.prepare(
+      'INSERT INTO policies (id, name, description, scope_json, rules_json, status, created_by, created_at, applied_at) VALUES (?,?,?,?,?,?,?,?,?)'
+    );
+
+    for (const p of list) {
+      stmt.run(
+        p.id,
+        p.name,
+        p.description ?? null,
+        JSON.stringify(p.scope),
+        JSON.stringify(p.rules),
+        p.status,
+        p.createdBy,
+        p.createdAt,
+        p.appliedAt ?? null
+      );
+    }
   }),
 };
 

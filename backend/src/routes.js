@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { store, getCountry, wrap, validate, notFound, badRequest, convert, round } from './core/index.js';
+// import { store, getCountry, wrap, validate, notFound, badRequest, convert, round } from './core/index.js';
+import { store, getCountry, wrap, validate, notFound, badRequest, convert, round, deepMerge } from './core/index.js';
 import { COUNTRIES, CURRENCIES, FX_RATES } from './config/countries.js';
 import { calculateEmployee, endOfService } from './modules/payroll/engine.js';
 import { summarizeAttendance, leaveBalance } from './modules/attendance/engine.js';
@@ -9,6 +10,218 @@ import { login, requireRole, requireAuth as requireAuthLocal, ROLES } from './co
 
 const actor = (req) => req.user?.username || req.header('x-user') || 'admin@meridian.example';
 const rates = () => store.state.settings?.fxRates ?? FX_RATES;
+
+/* ===== Rule & Regulation Policies (multi-country) =====
+ * A Policy is an org-wide rule change authored once and applied across a chosen set of
+ * countries in a single action, instead of editing each country's compliance page one at a
+ * time. Applying a policy deep-merges its `rules` onto every selected country's existing
+ * compliance override — the same mechanism single-country edits use — so calculations,
+ * warnings, and the compliance checklist all pick it up immediately. */
+
+const POLICY_FIELDS = {
+  'overtime.multiplier': {
+    label: 'Overtime multiplier',
+    type: 'number',
+    step: 0.05,
+    path: ['overtime', 'multiplier']
+  },
+  'overtime.threshold': {
+    label: 'Overtime threshold (hours)',
+    type: 'number',
+    step: 1,
+    path: ['overtime', 'threshold']
+  },
+  'overtime.rounding.increment': {
+    label: 'Overtime rounding increment (min)',
+    type: 'number',
+    step: 5,
+    path: ['overtime', 'rounding', 'increment']
+  },
+  'overtime.dailyCap': {
+    label: 'Overtime daily cap (hours)',
+    type: 'number',
+    step: 0.5,
+    path: ['overtime', 'dailyCap']
+  },
+  'leave.annual.accrualDaysPerYear': {
+    label: 'Annual leave (days/yr)',
+    type: 'number',
+    step: 1,
+    path: ['leave', 'annual', 'accrualDaysPerYear']
+  },
+  'leave.sick.daysPerYear': {
+    label: 'Sick leave (days/yr)',
+    type: 'number',
+    step: 1,
+    path: ['leave', 'sick', 'daysPerYear']
+  },
+  'wageProtection.payWithinDays': {
+    label: 'Pay within (days) — wage protection',
+    type: 'number',
+    step: 1,
+    path: ['wageProtection', 'payWithinDays']
+  },
+  'minimumWage.amount': {
+    label: 'Minimum wage amount',
+    type: 'number',
+    step: 1,
+    path: ['minimumWage', 'amount']
+  },
+};
+
+function buildRulesObject(fields) {
+  const out = {};
+
+  for (const [key, value] of Object.entries(fields ?? {})) {
+    const def = POLICY_FIELDS[key];
+
+    if (!def || value === null || value === undefined || value === '') {
+      continue;
+    }
+
+    let node = out;
+
+    for (let i = 0; i < def.path.length - 1; i++) {
+      node[def.path[i]] = node[def.path[i]] ?? {};
+      node = node[def.path[i]];
+    }
+
+    node[def.path.at(-1)] = Number(value);
+  }
+
+  return out;
+}
+
+export const policyRouter = Router();
+
+policyRouter.get('/fields', (req, res) =>
+  res.json(
+    Object.entries(POLICY_FIELDS).map(([key, f]) => ({
+      key,
+      label: f.label,
+      type: f.type,
+      step: f.step
+    }))
+  )
+);
+
+policyRouter.get('/', (req, res) =>
+  res.json(store.state.policies)
+);
+
+policyRouter.get('/:id', wrap((req, res) => {
+  const p = store.state.policies.find((x) => x.id === req.params.id);
+
+  if (!p) throw notFound('Policy');
+
+  res.json(p);
+}));
+
+policyRouter.post('/', requireRole('admin'), wrap((req, res) => {
+  const { name, description, scope, fields } = req.body ?? {};
+
+  validate(
+    { name, scope },
+    {
+      name: { required: true, type: 'string' },
+      scope: { required: true }
+    }
+  );
+
+  if (!Array.isArray(scope) || !scope.length) {
+    throw badRequest('scope must be a non-empty array of country codes');
+  }
+
+  const invalid = scope.filter((c) => !COUNTRIES[c]);
+
+  if (invalid.length) {
+    throw badRequest(`Unknown countries: ${invalid.join(', ')}`);
+  }
+
+  const rules = buildRulesObject(fields);
+
+  if (!Object.keys(rules).length) {
+    throw badRequest('At least one rule field must be set');
+  }
+
+  const policy = {
+    id: `POL-${Date.now().toString(36).toUpperCase()}`,
+    name,
+    description: description ?? '',
+    scope,
+    rules,
+    status: 'draft',
+    createdBy: actor(req),
+    createdAt: new Date().toISOString(),
+    appliedAt: null
+  };
+
+  store.state.policies.unshift(policy);
+
+  store.audit(actor(req), 'policy.create', {
+    id: policy.id,
+    name,
+    scope
+  });
+
+  store.save(['policies']);
+
+  res.status(201).json(policy);
+}));
+
+policyRouter.post('/:id/apply', requireRole('admin'), wrap((req, res) => {
+  const p = store.state.policies.find((x) => x.id === req.params.id);
+
+  if (!p) throw notFound('Policy');
+
+  const affected = [];
+
+  for (const code of p.scope) {
+    const existing = store.state.overrides[code] ?? {};
+
+    store.state.overrides[code] = deepMerge(
+      structuredClone(existing),
+      structuredClone(p.rules)
+    );
+
+    affected.push({
+      country: code,
+      effective: getCountry(code)
+    });
+  }
+
+  p.status = 'applied';
+  p.appliedAt = new Date().toISOString();
+
+  store.audit(actor(req), 'policy.apply', {
+    id: p.id,
+    name: p.name,
+    scope: p.scope
+  });
+
+  store.save(['policies', 'overrides']);
+
+  res.json({
+    policy: p,
+    affected: affected.map((a) => a.country)
+  });
+}));
+
+policyRouter.delete('/:id', requireRole('admin'), wrap((req, res) => {
+  const i = store.state.policies.findIndex((x) => x.id === req.params.id);
+
+  if (i < 0) throw notFound('Policy');
+
+  store.state.policies.splice(i, 1);
+
+  store.audit(actor(req), 'policy.delete', {
+    id: req.params.id
+  });
+
+  store.save(['policies']);
+
+  res.json({ ok: true });
+}));
 
 /* ===== Auth ===== */
 export const authRouter = Router();

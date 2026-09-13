@@ -44,11 +44,12 @@ class Store {
       employees: loaded.employees, payRuns: loaded.payRuns, history: loaded.history,
       settings: loaded.settings, overrides: loaded.overrides, audit: loaded.audit,
       attendance: loaded.attendance, leaveRequests: loaded.leaveRequests,
+      policies: loaded.policies,
     };
   }
   /** Persist one or more entities. Defaults to everything if none named (cheap at this data size). */
   save(entities) {
-    const list = entities ?? ['employees', 'attendance', 'leaveRequests', 'payRuns', 'history', 'overrides', 'settings', 'audit'];
+    const list = entities ?? ['employees', 'attendance', 'leaveRequests', 'payRuns', 'history', 'overrides', 'settings', 'audit', 'policies'];
     for (const e of list) {
       if (e === 'overrides') persist.overrides(this.state.overrides);
       else if (e === 'settings' && this.state.settings) persist.settings(this.state.settings);
