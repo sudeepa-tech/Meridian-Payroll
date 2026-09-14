@@ -4,11 +4,25 @@ import { useApp } from '../lib/AppContext.jsx';
 import { Icon } from '../components/Icon.jsx';
 
 function Drawer({ id, onClose }) {
+  const { notify, can } = useApp();
   const [data, setData] = useState(null);
-  useEffect(() => { api.employees.get(id).then(setData); }, [id]);
+  const [emailing, setEmailing] = useState(false);
+  const [emailResult, setEmailResult] = useState(null);
+  const canSend = can('admin', 'payroll_admin', 'hr_manager');
+  const period = '2026-09';
+  useEffect(() => { api.employees.get(id).then(setData); setEmailResult(null); }, [id]);
   if (!data) return null;
   const p = data.preview;
   const c = p.currency;
+  const sendPayslip = async () => {
+    setEmailing(true);
+    try {
+      const res = await api.payroll.emailPayslip(id, period);
+      setEmailResult(res);
+      notify(res.status === 'sent' ? `Payslip emailed to ${res.toEmail}` : res.status === 'dry-run' ? 'SMTP not configured — email composed but not sent (dry-run)' : `Failed: ${res.detail}`);
+    } catch (e) { notify(e.message); }
+    finally { setEmailing(false); }
+  };
   return (
     <>
       <div className="drawer-bg" onClick={onClose} />
@@ -29,6 +43,15 @@ function Drawer({ id, onClose }) {
         </div>
 
         <h2 style={{ marginTop: 22, marginBottom: 10 }}>This period's payslip</h2>
+        <div className="row wrap" style={{ gap: 8, marginBottom: 10 }}>
+          <a className="btn sm" href={api.payroll.payslipUrl(id, period)} target="_blank" rel="noreferrer"><Icon.Download style={{ width: 14, height: 14 }} /> Download PDF</a>
+          {canSend && <button className="btn sm primary" onClick={sendPayslip} disabled={emailing}>{emailing ? 'Sending…' : 'Email payslip'}</button>}
+        </div>
+        {emailResult && (
+          <div className={`chip ${emailResult.status === 'sent' ? 'green' : emailResult.status === 'dry-run' ? 'gold' : 'red'}`} style={{ marginBottom: 10, display: 'inline-block' }}>
+            {emailResult.status === 'sent' ? `Sent to ${emailResult.toEmail}` : emailResult.status === 'dry-run' ? 'Dry-run — SMTP not configured' : `Failed: ${emailResult.detail}`}
+          </div>
+        )}
         <div className="panel" style={{ padding: 14 }}>
           <div className="payslip-line"><span>Basic pay</span><span className="num">{fmtMoney(p.earnings.basic, c, p.decimals)}</span></div>
           {p.earnings.allowances > 0 && <div className="payslip-line"><span>Allowances</span><span className="num">{fmtMoney(p.earnings.allowances, c, p.decimals)}</span></div>}

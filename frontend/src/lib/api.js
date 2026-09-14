@@ -10,19 +10,31 @@ export function setUnauthorizedHandler(fn) { onUnauthorized = fn; }
 
 async function req(path, opts = {}) {
   const token = getToken();
+  const isFormData = opts.body instanceof FormData;
+
   const res = await fetch(BASE + path, {
-    headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
     ...opts,
+    headers: {
+      ...(isFormData ? {} : { 'content-type': 'application/json' }),
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...(opts.headers || {}),
+    },
   });
-  if (res.status === 401) { onUnauthorized(); }
+
+  if (res.status === 401) {
+    onUnauthorized();
+  }
+
   const isJson = res.headers.get('content-type')?.includes('application/json');
   const data = isJson ? await res.json() : await res.text();
+
   if (!res.ok) {
     const err = new Error(data?.error?.message || 'Request failed');
     err.details = data?.error?.details;
     err.status = res.status;
     throw err;
   }
+
   return data;
 }
 
@@ -45,21 +57,27 @@ export const api = {
     update: (code, body) => req(`/compliance/${code}`, { method: 'PUT', body: JSON.stringify(body) }),
     reset: (code) => req(`/compliance/${code}`, { method: 'DELETE' }),
     checklist: (code) => req(`/compliance/${code}/checklist`),
+    states: (code) => req(`/compliance/library/states/${code}`),
+
+checkUpdates: (code, state) => req(
+  `/compliance/${code}/check-updates`,
+  {
+    method: 'POST',
+    body: JSON.stringify({ state })
+  }
+),
+
+checks: (code) => req(`/compliance/${code}/checks`),
   },
   policies: {
   fields: () => req('/policies/fields'),
   list: () => req('/policies'),
   get: (id) => req(`/policies/${id}`),
-  create: (body) => req('/policies', {
-    method: 'POST',
-    body: JSON.stringify(body)
-  }),
-  apply: (id) => req(`/policies/${id}/apply`, {
-    method: 'POST'
-  }),
-  remove: (id) => req(`/policies/${id}`, {
-    method: 'DELETE'
-  }),
+  create: (body) => req('/policies', { method: 'POST', body: JSON.stringify(body) }),
+  submitForReview: (id) => req(`/policies/${id}/submit-for-review`, { method: 'POST' }),
+  review: (id, decision, note) => req(`/policies/${id}/review`, { method: 'POST', body: JSON.stringify({ decision, note }) }),
+  apply: (id) => req(`/policies/${id}/apply`, { method: 'POST' }),
+  remove: (id) => req(`/policies/${id}`, { method: 'DELETE' }),
 },
   attendance: {
     list: (params = {}) => req(`/attendance?${new URLSearchParams(params)}`),
@@ -92,13 +110,50 @@ export const api = {
     getRun: (id) => req(`/payroll/runs/${id}`),
     history: () => req('/payroll/history'),
     wpsUrl: (id) => `${BASE}/payroll/runs/${id}/wps`,
+    payslipUrl: (employeeId, period) => `${BASE}/payroll/payslip/${employeeId}.pdf?period=${period}`,
+emailConfig: () => req('/payroll/payslip/email-config'),
+emailPayslip: (employeeId, period) => req('/payroll/payslip/email', { method: 'POST', body: JSON.stringify({ employeeId, period }) }),
+emailPayslipsBulk: (country, period) => req('/payroll/payslip/email-bulk', { method: 'POST', body: JSON.stringify({ country, period }) }),
+emailLog: () => req('/payroll/payslip/email-log'),
   },
   ai: {
     forecast: (months = 6) => req(`/ai/forecast?months=${months}`),
     risks: () => req('/ai/risks'),
     integrity: () => req('/ai/integrity'),
     ask: (question) => req('/ai/ask', { method: 'POST', body: JSON.stringify({ question }) }),
+    reports: {
+  list: () => req('/ai/reports'),
+  get: (id) => req(`/ai/reports/${id}`),
+  generate: (prompt) => req('/ai/reports', { method: 'POST', body: JSON.stringify({ prompt }) }),
+  remove: (id) => req(`/ai/reports/${id}`, { method: 'DELETE' }),
+  pdfUrl: (id) => `${BASE}/ai/reports/${id}/pdf`,
+  xlsxUrl: (id) => `${BASE}/ai/reports/${id}/xlsx`,
+},
   },
+  payRules: {
+  variables: () => req('/pay-rules/variables'),
+  list: () => req('/pay-rules'),
+  get: (id) => req(`/pay-rules/${id}`),
+  create: (body) => req('/pay-rules', { method: 'POST', body: JSON.stringify(body) }),
+  update: (id, body) => req(`/pay-rules/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  submitForReview: (id) => req(`/pay-rules/${id}/submit-for-review`, { method: 'POST' }),
+  review: (id, decision, note) => req(`/pay-rules/${id}/review`, { method: 'POST', body: JSON.stringify({ decision, note }) }),
+  activate: (id) => req(`/pay-rules/${id}/activate`, { method: 'POST' }),
+  deactivate: (id) => req(`/pay-rules/${id}/deactivate`, { method: 'POST' }),
+  remove: (id) => req(`/pay-rules/${id}`, { method: 'DELETE' }),
+  preview: (body) => req('/pay-rules/preview', { method: 'POST', body: JSON.stringify(body) }),
+},
+connectors: {
+  parseCsv: (file) => { const fd = new FormData(); fd.append('file', file); return req('/connectors/parse/csv', { method: 'POST', body: fd }); },
+  parseXlsx: (file) => { const fd = new FormData(); fd.append('file', file); return req('/connectors/parse/xlsx', { method: 'POST', body: fd }); },
+  parsePdf: (file) => { const fd = new FormData(); fd.append('file', file); return req('/connectors/parse/pdf', { method: 'POST', body: fd }); },
+  parseText: (text) => req('/connectors/parse/text', { method: 'POST', body: JSON.stringify({ text }) }),
+  googleSheet: (url) => req('/connectors/google-sheet', { method: 'POST', body: JSON.stringify({ url }) }),
+  hrmsDemo: () => req('/connectors/hrms/demo'),
+  hrmsGeneric: (baseUrl, token, path) => req('/connectors/hrms/generic', { method: 'POST', body: JSON.stringify({ baseUrl, token, path }) }),
+  import: (body) => req('/connectors/import', { method: 'POST', body: JSON.stringify(body) }),
+  jobs: () => req('/connectors/jobs'),
+},
 };
 
 export function fmtMoney(amount, currency, decimals = 2) {

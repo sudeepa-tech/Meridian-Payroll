@@ -6,8 +6,9 @@ import { Icon } from '../components/Icon.jsx';
 const REGION_ORDER = ['North America', 'Middle East'];
 
 export default function Policies() {
-  const { countries, notify, can } = useApp();
-  const canEdit = can('admin');
+  const { countries, notify, can, user } = useApp();
+  const canPropose = can('admin', 'payroll_admin');
+  const canReview = can('admin');
   const [fields, setFields] = useState([]);
   const [policies, setPolicies] = useState([]);
   const [showForm, setShowForm] = useState(false);
@@ -16,6 +17,8 @@ export default function Policies() {
   const [scope, setScope] = useState([]);
   const [values, setValues] = useState({});
   const [saving, setSaving] = useState(false);
+  const [reviewNoteFor, setReviewNoteFor] = useState(null);
+  const [reviewNote, setReviewNote] = useState('');
 
   const load = () => {
     api.policies.fields().then(setFields);
@@ -55,6 +58,20 @@ export default function Policies() {
     } catch (e) { notify(e.message); }
   };
 
+  const submitForReview = async (id) => {
+    try { await api.policies.submitForReview(id); notify('Submitted for review'); load(); }
+    catch (e) { notify(e.message); }
+  };
+
+  const review = async (id, decision) => {
+    try {
+      await api.policies.review(id, decision, reviewNote || undefined);
+      notify(decision === 'approved' ? 'Approved' : 'Rejected');
+      setReviewNoteFor(null); setReviewNote('');
+      load();
+    } catch (e) { notify(e.message); }
+  };
+
   const remove = async (id) => { await api.policies.remove(id); notify('Policy deleted'); load(); };
 
   return (
@@ -64,12 +81,13 @@ export default function Policies() {
           <h1>Rules &amp; regulations — policy builder</h1>
           <p>Author one rule change and apply it across any combination of your US and Middle East entities at once, instead of editing each country individually.</p>
         </div>
-        {canEdit && <button className="btn primary" onClick={() => setShowForm((s) => !s)}>{showForm ? 'Cancel' : '+ New policy'}</button>}
+        {canPropose && <button className="btn primary" onClick={() => setShowForm((s) => !s)}>{showForm ? 'Cancel' : '+ New policy'}</button>}
       </div>
 
-      {!canEdit && <div className="note" style={{ marginBottom: 18 }}>Read-only for your role. Only an Administrator can create or apply organisation-wide policies.</div>}
+      {!canPropose && <div className="note" style={{ marginBottom: 18 }}>Read-only for your role. Payroll admins can propose policies; only an Administrator can review and apply them.</div>}
+      {canPropose && !canReview && <div className="note" style={{ marginBottom: 18 }}>You can propose policies, but a separate Administrator must review and approve before one can be applied — the same person can never do both steps.</div>}
 
-      {showForm && canEdit && (
+      {showForm && canPropose && (
         <div className="panel" style={{ marginBottom: 20 }}>
           <div className="panel-head"><h2>New policy</h2></div>
           <div className="grid cols-2">
@@ -118,36 +136,52 @@ export default function Policies() {
             <button className="btn primary" disabled={saving} onClick={create}><Icon.Check style={{ width: 16, height: 16 }} /> Save as draft</button>
             <button className="btn" onClick={reset}>Clear</button>
           </div>
-          <p className="faint" style={{ marginTop: 10 }}>Saving creates a draft only — nothing changes until you apply it below.</p>
+          <p className="faint" style={{ marginTop: 10 }}>Saving creates a draft only. It then needs to be submitted for review, and approved by a different Administrator, before it can be applied.</p>
         </div>
       )}
 
       <div className="panel">
         <div className="panel-head"><h2>Policies</h2><span className="faint">{policies.length} total</span></div>
-        {policies.length === 0 && <p className="muted">No policies yet. {canEdit ? 'Create one above.' : ''}</p>}
+        {policies.length === 0 && <p className="muted">No policies yet. {canPropose ? 'Create one above.' : ''}</p>}
         <div className="list">
-          {policies.map((p) => (
-            <div className="item" key={p.id}>
-              <span className="dot" style={{ background: p.status === 'applied' ? 'var(--green)' : 'var(--gold)' }} />
-              <div style={{ width: '100%' }}>
-                <div className="row"><span className="t">{p.name}</span><span className={`chip ${p.status === 'applied' ? 'green' : 'gold'}`}>{p.status}</span></div>
-                {p.description && <div className="d">{p.description}</div>}
-                <div className="row wrap" style={{ gap: 6, marginTop: 6 }}>
-                  {p.scope.map((code) => <span key={code} className="chip">{code}</span>)}
+          {policies.map((p) => {
+            const statusColor = { draft: 'gold', pending_review: 'blue', approved: 'green', rejected: 'red', applied: 'green' }[p.status];
+            const dotColors = { gold: 'var(--gold)', blue: 'var(--blue)', green: 'var(--green)', red: 'var(--red)' };
+            const isOwnProposal = p.proposedBy === user?.username;
+            return (
+              <div className="item" key={p.id}>
+                <span className="dot" style={{ background: dotColors[statusColor] }} />
+                <div style={{ width: '100%' }}>
+                  <div className="row"><span className="t">{p.name}</span><span className={`chip ${statusColor}`}>{p.status.replace('_', ' ')}</span></div>
+                  {p.description && <div className="d">{p.description}</div>}
+                  <div className="row wrap" style={{ gap: 6, marginTop: 6 }}>
+                    {p.scope.map((code) => <span key={code} className="chip">{code}</span>)}
+                  </div>
+                  <div className="s" style={{ marginTop: 6 }}>
+                    {Object.entries(flatten(p.rules)).map(([k, v]) => `${k} → ${v}`).join(' · ')}
+                  </div>
+                  <div className="s">Proposed by {p.proposedBy} · {new Date(p.createdAt).toLocaleString()}</div>
+                  {p.reviewedBy && <div className="s">{p.status === 'rejected' ? 'Rejected' : 'Reviewed'} by {p.reviewedBy} · {new Date(p.reviewedAt).toLocaleString()}{p.reviewNote ? ` — "${p.reviewNote}"` : ''}</div>}
+                  {p.appliedAt && <div className="s">Applied {new Date(p.appliedAt).toLocaleString()}</div>}
+                  {reviewNoteFor === p.id && (
+                    <div className="row" style={{ marginTop: 8, gap: 6 }}>
+                      <input className="input" style={{ fontSize: 13 }} placeholder="Review note (optional)" value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} />
+                      <button className="btn sm primary" onClick={() => review(p.id, 'approved')}>Approve</button>
+                      <button className="btn sm danger" onClick={() => review(p.id, 'rejected')}>Reject</button>
+                      <button className="btn sm" onClick={() => { setReviewNoteFor(null); setReviewNote(''); }}>Cancel</button>
+                    </div>
+                  )}
                 </div>
-                <div className="s" style={{ marginTop: 6 }}>
-                  {Object.entries(flatten(p.rules)).map(([k, v]) => `${k} → ${v}`).join(' · ')}
-                </div>
-                <div className="s">Created by {p.createdBy} · {new Date(p.createdAt).toLocaleString()}{p.appliedAt ? ` · Applied ${new Date(p.appliedAt).toLocaleString()}` : ''}</div>
-              </div>
-              {canEdit && (
                 <div className="row" style={{ flexDirection: 'column', gap: 6 }}>
-                  {p.status === 'draft' && <button className="btn sm primary" onClick={() => apply(p.id)}>Apply now</button>}
-                  <button className="btn sm danger" onClick={() => remove(p.id)}>Delete</button>
+                  {p.status === 'draft' && canPropose && <button className="btn sm primary" onClick={() => submitForReview(p.id)}>Submit for review</button>}
+                  {p.status === 'pending_review' && canReview && !isOwnProposal && reviewNoteFor !== p.id && <button className="btn sm primary" onClick={() => setReviewNoteFor(p.id)}>Review</button>}
+                  {p.status === 'pending_review' && isOwnProposal && <span className="faint" style={{ fontSize: 12, maxWidth: 140, textAlign: 'right' }}>Awaiting a different Administrator's review</span>}
+                  {p.status === 'approved' && canReview && <button className="btn sm primary" onClick={() => apply(p.id)}>Apply now</button>}
+                  {canReview && <button className="btn sm danger" onClick={() => remove(p.id)}>Delete</button>}
                 </div>
-              )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

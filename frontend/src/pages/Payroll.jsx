@@ -11,6 +11,8 @@ export default function Payroll() {
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
   const [lastRun, setLastRun] = useState(null);
+  const [emailingAll, setEmailingAll] = useState(false);
+  const [emailSummary, setEmailSummary] = useState(null);
   const [scope, setScope] = useState('country');
 
   const runPreview = () => {
@@ -32,6 +34,16 @@ export default function Payroll() {
       if (e.status === 400 && !force) notify('Blocked by compliance warnings — resolve or override');
       else notify(e.message);
     } finally { setRunning(false); }
+  };
+
+  const emailAllPayslips = async () => {
+    setEmailingAll(true); setEmailSummary(null);
+    try {
+      const res = await api.payroll.emailPayslipsBulk(scope === 'country' ? country : undefined, period);
+      setEmailSummary(res);
+      notify(`Processed ${res.records.length} payslip email${res.records.length === 1 ? '' : 's'}`);
+    } catch (e) { notify(e.message); }
+    finally { setEmailingAll(false); }
   };
 
   return (
@@ -101,9 +113,19 @@ export default function Payroll() {
                     )}
                   </>
                 ) : (
-                  <a className="btn" href={api.payroll.wpsUrl(lastRun.id)} target="_blank" rel="noreferrer"><Icon.Download style={{ width: 16, height: 16 }} /> Download WPS/SIF file</a>
+                  <>
+                    <a className="btn" href={api.payroll.wpsUrl(lastRun.id)} target="_blank" rel="noreferrer"><Icon.Download style={{ width: 16, height: 16 }} /> Download WPS/SIF file</a>
+                    {canRun && <button className="btn" disabled={emailingAll} onClick={emailAllPayslips}>{emailingAll ? 'Sending…' : 'Email all payslips'}</button>}
+                  </>
                 )}
               </div>
+              {emailSummary && (
+                <div className="note" style={{ marginTop: 12 }}>
+                  {emailSummary.sent > 0 && `${emailSummary.sent} sent. `}
+                  {emailSummary.dryRun > 0 && `${emailSummary.dryRun} composed but not sent — SMTP not configured on this server. `}
+                  {emailSummary.failed > 0 && `${emailSummary.failed} failed.`}
+                </div>
+              )}
             </div>
 
             <div className="panel">

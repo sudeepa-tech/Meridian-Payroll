@@ -12,6 +12,10 @@ import Settings from './pages/Settings.jsx';
 import AttendanceLeave from './pages/AttendanceLeave.jsx';
 import Reports from './pages/Reports.jsx';
 import Login from './pages/Login.jsx';
+import ComplianceLibrary from './pages/ComplianceLibrary.jsx';
+import AiReports from './pages/AiReports.jsx';
+import PayRules from './pages/PayRules.jsx';
+import Connectors from './pages/Connectors.jsx';
 
 function Shell() {
   const { loading, authChecked, user } = useApp();
@@ -20,7 +24,8 @@ function Shell() {
   if (!authChecked || (user && loading)) return <div style={{ padding: 40 }}>Loading Meridian Payroll…</div>;
   if (!user) return <Login />;
 
-  const Page = { dashboard: Dashboard, employees: Employees, attendance: AttendanceLeave, payroll: Payroll, compliance: Compliance, policies: Policies, reports: Reports, assistant: Assistant, settings: Settings }[page];
+  // const Page = { dashboard: Dashboard, employees: Employees, attendance: AttendanceLeave, payroll: Payroll, compliance: Compliance, policies: Policies, reports: Reports, assistant: Assistant, settings: Settings }[page];
+  const Page = { dashboard: Dashboard, employees: Employees, attendance: AttendanceLeave, payroll: Payroll, compliance: Compliance, compliancelibrary: ComplianceLibrary, policies: Policies, payrules: PayRules, connectors: Connectors, reports: Reports, aireports: AiReports, assistant: Assistant, settings: Settings }[page];
 
   return (
     <div className="shell">
