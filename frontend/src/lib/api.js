@@ -45,13 +45,24 @@ export const api = {
     me: () => req('/auth/me'),
   },
   settings: {
-    get: () => req('/settings'),
-    update: (body) => req('/settings', { method: 'PUT', body: JSON.stringify(body) }),
-    countries: () => req('/settings/countries'),
-    country: (code) => req(`/settings/countries/${code}`),
-    currencies: () => req('/settings/currencies'),
-    audit: () => req('/settings/audit'),
+  get: () => req('/settings'),
+  update: (body) => req('/settings', { method: 'PUT', body: JSON.stringify(body) }),
+  countries: () => req('/settings/countries'),
+  country: (code) => req(`/settings/countries/${code}`),
+  currencies: () => req('/settings/currencies'),
+  audit: () => req('/settings/audit'),
+
+  companies: {
+    list: () => req('/settings/companies'),
+    create: (name) => req('/settings/companies', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+    remove: (id) => req(`/settings/companies/${id}`, {
+      method: 'DELETE',
+    }),
   },
+},
   compliance: {
     get: (code) => req(`/compliance/${code}`),
     update: (code, body) => req(`/compliance/${code}`, { method: 'PUT', body: JSON.stringify(body) }),
